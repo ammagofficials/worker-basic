@@ -1,1 +1,5 @@
 runpod==1.7.7
+kokoro>=0.9.4
+soundfile
+torch
+IPython
