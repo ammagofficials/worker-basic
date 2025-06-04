@@ -26,7 +26,6 @@ python3 rp_handler.py
 
 ## Build and Push Docker Image to a Container Registry (e.g., Docker Hub)
 
-
 ```
 # Build docker image
 docker build -t your-dockerhub-username/your-image-name:v1.0.0 --platform linux/amd64 .
