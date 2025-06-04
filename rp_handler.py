@@ -1,36 +1,50 @@
 import runpod
 import time
 import base64
-from kokoro import KPipeline
 import soundfile as sf
 import torch
 import io
+from kokoro import KPipeline  # Assumes kokoro is properly installed
+
+# Preload the model (optional, helps avoid cold-start delay)
+pipeline_cache = {}
 
 def handler(event):
     print("Worker Start")
     input = event['input']
 
     prompt = input.get('prompt')
-    languageId = input.get('languageId', 'a')
-    voice = input.get('voiceType', 'af_heart')
+    languageId = input.get('languageId', 'a')       # e.g., 'en' for English
+    voice = input.get('voiceType', 'af_heart')      # Default voice
 
     print(f"Received prompt: {prompt}")
     print(f"Language is: {languageId}")
 
-    pipeline = KPipeline(lang_code=languageId)
-    text = prompt
-    generator = pipeline(text, voice=voice)
+    # Load pipeline from Hugging Face model
+    cache_key = f"{languageId}-{voice}"
+    if cache_key not in pipeline_cache:
+        print("Loading model...")
+        pipeline_cache[cache_key] = KPipeline(
+            lang_code=languageId,
+            model_id="hexgrad/Kokoro-82M",  # Explicitly use this Hugging Face model
+            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+            device="cuda" if torch.cuda.is_available() else "cpu"
+        )
 
-    # Get first result only
+    pipeline = pipeline_cache[cache_key]
+
+    # Generate audio
+    generator = pipeline(prompt, voice=voice)
+
     i, (gs, ps, audio) = next(enumerate(generator))
-    print(i, gs, ps)
+    print(f"Generated audio index: {i}")
 
-    # Save to memory buffer instead of file
+    # Save audio to buffer
     buffer = io.BytesIO()
     sf.write(buffer, audio, 24000, format='WAV')
     buffer.seek(0)
 
-    # Encode as base64 for safe return
+    # Encode to base64
     audio_base64 = base64.b64encode(buffer.read()).decode('utf-8')
 
     return {
