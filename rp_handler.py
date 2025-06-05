@@ -5,6 +5,7 @@ from kokoro import KPipeline
 import soundfile as sf
 import torch
 import io
+import numpy as np
 
 def handler(event):
     print("Worker Start")
@@ -21,13 +22,17 @@ def handler(event):
     text = prompt
     generator = pipeline(text, voice=voice)
 
-    # Get first result only
-    i, (gs, ps, audio) = next(enumerate(generator))
-    print(i, gs, ps)
+    full_audio = []
+    for i, (gs, ps, audio) in enumerate(generator):
+        print(i, gs, ps)
+        full_audio.append(audio)
+
+    # Concatenate all audio chunks
+    combined_audio = np.concatenate(full_audio)
 
     # Save to memory buffer instead of file
     buffer = io.BytesIO()
-    sf.write(buffer, audio, 24000, format='WAV')
+    sf.write(buffer, combined_audio, 24000, format='WAV')
     buffer.seek(0)
 
     # Encode as base64 for safe return
